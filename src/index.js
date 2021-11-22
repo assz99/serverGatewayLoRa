@@ -2,6 +2,7 @@ const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const mongoose = require('mongoose');
+const bodyParser = require("body-parser");
 
 require("./models/msgLora");
 require("./models/msgProj");
@@ -25,10 +26,12 @@ mongoose.connect(
 );
 
 const myMAC = "b8:27:eb:8e:94:f2";
-
+const offset = -4;
 httpServer.listen(port, () => {
   console.log(`Projeto rodando em http://localhost:${port}`)
 });
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 // msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
 // msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp";
@@ -42,35 +45,46 @@ async function isFromAProject(str) {
 
 }
 
-function sendConfirmation(x,y){
-const str = myMAC + "!" + x + "!" + "confirm"+ "!" + y;
-return str;
+function sendConfirmation(x, y) {
+  const str = myMAC + "!" + x + "!" + "confirm" + "!" + y;
+  return str;
 }
 
 io.on('connection', (socket) => {
-  console.log('a user connected');
+  console.log(`a user: ${socket.id} connected`);
   socket.on('message', async function (message) {
     var objMsg = { message: message }
     await MsgLora.create(objMsg);
     const receivedString = message.split('!');
-    if(receivedString[1] !== myMAC){
+    if (receivedString[1] !== myMAC) {
       console.log("Mensagem nao e para mim.");
       return;
-    }else{
+    } else {
       console.log("Mensagem e para mim");
     }
     if (isFromAProject(receivedString[2])) {
       objMsg = {
         sender: receivedString[0],
-        projName:receivedString[2],
-        timeStamp:receivedString[3],
-        message:receivedString[4],
+        projName: receivedString[2],
+        timeStamp: receivedString[3],
+        message: receivedString[4],
       }
       await MsgProj.create(objMsg);
     }
-    const msg = sendConfirmation(receivedString[0],receivedString[3])
+    const msg = sendConfirmation(receivedString[0], receivedString[3])
     console.log(msg);
     socket.emit('message', msg);
   });
 });
 
+app.post("/enviar", (req, res) => {
+  try {
+    const { destino, projName, message } = req.body;
+    const timestamp = new Date(new Date().getTime() + offset * 3600 * 1000).getTime();
+    const msg = myMAC + "!" + destino + "!" + projName + "!" + timestamp + "!" + message;
+    io.emit('message', msg);
+    res.send('Mensagem Enviada');
+  } catch(err){
+    return res.status(400).json({ error: "Falha em enviar a mensagem." });
+  }
+});
