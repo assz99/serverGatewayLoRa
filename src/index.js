@@ -27,8 +27,10 @@ mongoose.connect(
 
 const myMAC = "b8:27:eb:8e:94:f2";
 const offset = -4;
+var control = [];
+
 httpServer.listen(port, () => {
-  console.log(`Projeto rodando em http://localhost:${port}`)
+  logGreen(`Projeto rodando em http://localhost:${port}`)
 });
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -42,7 +44,6 @@ async function isFromAProject(str) {
     res = x.projName + res;
   })
   return res.includes(str);
-
 }
 
 function sendConfirmation(x, y) {
@@ -51,18 +52,23 @@ function sendConfirmation(x, y) {
 }
 
 io.on('connection', (socket) => {
-  console.log(`a user: ${socket.id} connected`);
+  logCyan(`a user: ${socket.id} connected`);
   socket.on('message', async function (message) {
     var objMsg = { message: message }
+    logCyan(`Recebi a mensagem:\n ${message}`);
     await MsgLora.create(objMsg);
     const receivedString = message.split('!');
     if (receivedString[1] !== myMAC) {
-      console.log("Mensagem nao e para mim.");
+      logYellow("Mensagem nao e para mim.");
       return;
     } else {
-      console.log("Mensagem e para mim");
+      logGreen("Mensagem e para mim");
     }
     if (isFromAProject(receivedString[2])) {
+      if (receivedString[2] === "confirm") {
+        retireFromControl(receivedString[4]);
+        return;
+      }
       objMsg = {
         sender: receivedString[0],
         projName: receivedString[2],
@@ -72,19 +78,70 @@ io.on('connection', (socket) => {
       await MsgProj.create(objMsg);
     }
     const msg = sendConfirmation(receivedString[0], receivedString[3])
-    console.log(msg);
+    logBlue("Enviando Confirmacao")
     socket.emit('message', msg);
   });
 });
+
+function insertOnControl(msg, timestamp) {
+  control.push({ message: msg, timestamp: timestamp });
+  logYellow(`Colocando a mensagem no controle:\n${msg}`)
+  if (control.length > 24) {
+    logRed("Cuidado vetor controle esta com muita mensagem;")
+  }
+}
+
+function checkControl() {
+  logYellow("Verificando Vetor Control")
+  control.map((x, index) => {
+    const timestamp = new Date(new Date().getTime() + offset * 3600 * 1000).getTime();
+    logRed(timestamp - x.timestamp);
+    if (timestamp - x.timestamp >= 30000) {
+      sendToGateway(x.message);
+      control[index].timestamp = timestamp;
+      logYellow("Reenviando mensagem pois nao foi confirmada.")
+    }
+  })
+}
+
+function retireFromControl(timestamp) {
+  control.map((x, index) => { 
+    if(x.timeStamp === timestamp){
+      logGreen(`Retirando a mensagem: ${x.message} do controle.`)
+      control.splice(index,1);
+    }
+  })
+}
+
+function sendToGateway(msg) {
+  io.emit('message', msg);
+}
 
 app.post("/enviar", (req, res) => {
   try {
     const { destino, projName, message } = req.body;
     const timestamp = new Date(new Date().getTime() + offset * 3600 * 1000).getTime();
     const msg = myMAC + "!" + destino + "!" + projName + "!" + timestamp + "!" + message;
-    io.emit('message', msg);
+    sendToGateway(msg);
+    insertOnControl(msg, timestamp);
     res.send('Mensagem Enviada');
-  } catch(err){
+  } catch (err) {
     return res.status(400).json({ error: "Falha em enviar a mensagem." });
   }
 });
+function logCyan(msg){
+  console.log('\x1b[36m%s\x1b[0m', `${msg}`);
+}
+function logBlue(msg){
+  console.log('\x1b[34m%s\x1b[0m', `${msg}`);
+}
+function logRed(msg){
+  console.log('\x1b[31m%s\x1b[0m', `${msg}`);
+}
+function logGreen(msg){
+  console.log('\x1b[32m%s\x1b[0m', `${msg}`);
+}
+function logYellow(msg){
+  console.log('\x1b[33m%s\x1b[0m', `${msg}`);
+}
+setInterval(checkControl, 20000);
