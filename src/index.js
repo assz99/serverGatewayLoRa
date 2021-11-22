@@ -24,11 +24,14 @@ mongoose.connect(
 }
 );
 
+const myMAC = "b8:27:eb:8e:94:f2";
 
 httpServer.listen(port, () => {
   console.log(`Projeto rodando em http://localhost:${port}`)
 });
 
+// msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
+// msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp";
 async function isFromAProject(str) {
   const projsNames = await ProjName.find({}, { "_id": 0, "id": 0, "__v": 0 });
   var res;
@@ -39,12 +42,23 @@ async function isFromAProject(str) {
 
 }
 
+function sendConfirmation(x,y){
+const str = myMAC + "!" + x + "!" + "confirm"+ "!" + y;
+return str;
+}
+
 io.on('connection', (socket) => {
   console.log('a user connected');
   socket.on('message', async function (message) {
     var objMsg = { message: message }
     await MsgLora.create(objMsg);
     const receivedString = message.split('!');
+    if(receivedString[1] !== myMAC){
+      console.log("Mensagem nao e para mim.");
+      return;
+    }else{
+      console.log("Mensagem e para mim");
+    }
     if (isFromAProject(receivedString[2])) {
       objMsg = {
         sender: receivedString[0],
@@ -54,8 +68,9 @@ io.on('connection', (socket) => {
       }
       await MsgProj.create(objMsg);
     }
-    socket.emit('message', "Recebido");
+    const msg = sendConfirmation(receivedString[0],receivedString[3])
+    console.log(msg);
+    socket.emit('message', msg);
   });
 });
 
-isFromAProject("b8:27:eb:8e:94:f2!8C:80:40:EA:73:E0!arCond!1637488366304!603");
