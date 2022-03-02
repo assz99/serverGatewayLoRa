@@ -3,6 +3,7 @@ const { createServer } = require("http");
 const { Server } = require("socket.io");
 const mongoose = require('mongoose');
 const bodyParser = require("body-parser");
+const { timeStamp } = require("console");
 
 require("./models/msgLora");
 require("./models/msgProj");
@@ -28,12 +29,32 @@ mongoose.connect(
 const myMAC = "b8:27:eb:8e:94:f2";
 const offset = -4;
 var control = [];
+var sendTime = false;
 
 httpServer.listen(port, () => {
   logGreen(`Projeto rodando em http://localhost:${port}`)
 });
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+app.post('/sendLoRa', (req, res) => {
+  try {
+    const { destiny, projName, message } = req.body;
+    const timestamp = getTimeStamp();
+    const msg = myMAC + '!' + destiny + '!' + projName + '!' + timestamp + '!' + message;
+    console.log("Enviando para o Gateway: " + msg);
+    sendToGateway(msg);
+    //insertOnControl(msg, timestamp);
+    res.send('OK')
+  } catch (err) {
+    return res.status(400).json({ error: "Falha em enviar a mensagem." });
+  }
+})
+
+function getTimeStamp() {
+  const timeStamp = Math.round(new Date(new Date().getTime() + offset * 3600 * 1000).getTime() / 1000);
+  return timeStamp;
+}
 
 // msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
 // msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp";
@@ -54,16 +75,25 @@ function sendConfirmation(x, y) {
 io.on('connection', (socket) => {
   logCyan(`a user: ${socket.id} connected`);
   socket.on('message', async function (message) {
-    var objMsg = { message: message }
     logCyan(`Recebi a mensagem:\n ${message}`);
+    if (await isDuplicate(message)) {
+      return;
+    }
+    var objMsg = { message: message }
     await MsgLora.create(objMsg);
     const receivedString = message.split('!');
-    if (receivedString[1] !== myMAC) {
+    //VERIFICA SE A MENSAGEM REALMENTE E PARA O GATEWAY
+    if (receivedString[1] === myMAC) {
+      logGreen("Mensagem e para mim");
+    } else {
       logYellow("Mensagem nao e para mim.");
       return;
-    } else {
-      logGreen("Mensagem e para mim");
     }
+    //ENVIA A CONFIRMAÇÃO PARA O CLIENTE CONFIRMANDO QUE RECEBEU A MENSAGEM
+    const msg = sendConfirmation(receivedString[0], receivedString[3]);
+    logBlue("Enviando Confirmacao: " + msg);
+    //socket.emit('LoRamessage', msg);
+    //CASO FOR DE UM PROJETO ARMAZENA A MENSAGEM NO BANCO DE DADOS
     if (isFromAProject(receivedString[2])) {
       if (receivedString[2] === "confirm") {
         retireFromControl(receivedString[4]);
@@ -76,12 +106,29 @@ io.on('connection', (socket) => {
         message: receivedString[4],
       }
       await MsgProj.create(objMsg);
+      //VERIFICA SE O TIMESTAMP DO CLIENTE ESTA CERTO CASO NAO ESTEJA ELE ENVIA UM NOVO
+      sendTime = false;
+      if (receivedString[3] - getTimeStamp() > 90 || receivedString[3] - getTimeStamp() < -90) {
+        sendTime = true;
+      }
     }
-    const msg = sendConfirmation(receivedString[0], receivedString[3])
-    logBlue("Enviando Confirmacao")
-    socket.emit('message', msg);
+    if (sendTime === true) {
+      logRed("TimeStamp desatualizando Enviando novo");
+      const msg1 = myMAC + "!" + receivedString[0] + "!time!" + getTimeStamp();
+      socket.emit('LoRamessage', msg1);
+    }
   });
 });
+
+async function isDuplicate(msg) {
+  const res = await MsgLora.countDocuments({ message: msg });
+  if (res >= 1) {
+    logYellow("Mensagem Duplicada");
+    return true;
+  } else {
+    return false;
+  }
+}
 
 function insertOnControl(msg, timestamp) {
   control.push({ message: msg, timestamp: timestamp });
@@ -105,21 +152,22 @@ function checkControl() {
 }
 
 function retireFromControl(timestamp) {
-  control.map((x, index) => { 
-    if(x.timeStamp === timestamp){
+  control.map((x, index) => {
+    if (x.timeStamp === timestamp) {
       logGreen(`Retirando a mensagem: ${x.message} do controle.`)
-      control.splice(index,1);
+      control.splice(index, 1);
     }
   })
 }
 
 function sendToGateway(msg) {
-  io.emit('message', msg);
+  io.emit('LoRamessage', msg);
 }
-
+/*APAGAR FUNÇÃO FUTURAMENTE
 app.post("/enviar", (req, res) => {
   try {
     const { destino, projName, message } = req.body;
+    console.log("destino:" + destino);
     const timestamp = new Date(new Date().getTime() + offset * 3600 * 1000).getTime();
     const msg = myMAC + "!" + destino + "!" + projName + "!" + timestamp + "!" + message;
     sendToGateway(msg);
@@ -128,20 +176,21 @@ app.post("/enviar", (req, res) => {
   } catch (err) {
     return res.status(400).json({ error: "Falha em enviar a mensagem." });
   }
-});
-function logCyan(msg){
+})*/
+function logCyan(msg) {
   console.log('\x1b[36m%s\x1b[0m', `${msg}`);
 }
-function logBlue(msg){
+function logBlue(msg) {
   console.log('\x1b[34m%s\x1b[0m', `${msg}`);
 }
-function logRed(msg){
+function logRed(msg) {
   console.log('\x1b[31m%s\x1b[0m', `${msg}`);
 }
-function logGreen(msg){
+function logGreen(msg) {
   console.log('\x1b[32m%s\x1b[0m', `${msg}`);
 }
-function logYellow(msg){
+function logYellow(msg) {
   console.log('\x1b[33m%s\x1b[0m', `${msg}`);
 }
-setInterval(checkControl, 20000);
+
+//setInterval(checkControl, 20000);
