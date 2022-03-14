@@ -68,7 +68,7 @@ async function isFromAProject(str) {
 }
 
 function sendConfirmation(x, y) {
-  const str = myMAC + "!" + x + "!" + "confirm" + "!" + y;
+  const str = myMAC + "!" + x + "!" + "confirm" + "!" + y + "!OK";
   return str;
 }
 
@@ -92,7 +92,7 @@ io.on('connection', (socket) => {
     //ENVIA A CONFIRMAÇÃO PARA O CLIENTE CONFIRMANDO QUE RECEBEU A MENSAGEM
     const msg = sendConfirmation(receivedString[0], receivedString[3]);
     logBlue("Enviando Confirmacao: " + msg);
-    //socket.emit('LoRamessage', msg);
+    socket.emit('LoRamessage', msg);
     //CASO FOR DE UM PROJETO ARMAZENA A MENSAGEM NO BANCO DE DADOS
     if (isFromAProject(receivedString[2])) {
       if (receivedString[2] === "confirm") {
@@ -114,7 +114,7 @@ io.on('connection', (socket) => {
     }
     if (sendTime === true) {
       logRed("TimeStamp desatualizando Enviando novo");
-      const msg1 = myMAC + "!" + receivedString[0] + "!time!" + getTimeStamp();
+      const msg1 = myMAC + "!" + receivedString[0] + "!time!" + getTimeStamp() + "!OK";
       socket.emit('LoRamessage', msg1);
     }
   });
