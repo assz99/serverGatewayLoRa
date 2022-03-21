@@ -44,7 +44,7 @@ app.post('/sendLoRa', (req, res) => {
     const msg = myMAC + '!' + destiny + '!' + projName + '!' + timestamp + '!' + message;
     console.log("Enviando para o Gateway: " + msg);
     sendToGateway(msg);
-    //insertOnControl(msg, timestamp);
+    insertOnControl(msg, timestamp);
     res.send('OK')
   } catch (err) {
     return res.status(400).json({ error: "Falha em enviar a mensagem." });
@@ -57,7 +57,7 @@ function getTimeStamp() {
 }
 
 // msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
-// msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp";
+// msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp" + !OK;
 async function isFromAProject(str) {
   const projsNames = await ProjName.find({}, { "_id": 0, "id": 0, "__v": 0 });
   var res;
@@ -95,8 +95,8 @@ io.on('connection', (socket) => {
     socket.emit('LoRamessage', msg);
     //CASO FOR DE UM PROJETO ARMAZENA A MENSAGEM NO BANCO DE DADOS
     if (isFromAProject(receivedString[2])) {
-      if (receivedString[2] === "confirm") {
-        retireFromControl(receivedString[4]);
+      if (receivedString[2] == "confirm") {
+        retireFromControl(receivedString[3]);
         return;
       }
       objMsg = {
@@ -131,7 +131,7 @@ async function isDuplicate(msg) {
 }
 
 function insertOnControl(msg, timestamp) {
-  control.push({ message: msg, timestamp: timestamp });
+  control.push({ message: msg, timestamp: timestamp, timestampControl: timestamp });
   logYellow(`Colocando a mensagem no controle:\n${msg}`)
   if (control.length > 24) {
     logRed("Cuidado vetor controle esta com muita mensagem;")
@@ -141,11 +141,12 @@ function insertOnControl(msg, timestamp) {
 function checkControl() {
   logYellow("Verificando Vetor Control")
   control.map((x, index) => {
-    const timestamp = new Date(new Date().getTime() + offset * 3600 * 1000).getTime();
-    logRed(timestamp - x.timestamp);
-    if (timestamp - x.timestamp >= 30000) {
+    const timestamp = getTimeStamp();
+    let control = timestamp - x.timestampControl;
+    logRed(control);
+    if (control >= 30000) {
       sendToGateway(x.message);
-      control[index].timestamp = timestamp;
+      control[index].timestampControl = timestamp;
       logYellow("Reenviando mensagem pois nao foi confirmada.")
     }
   })
@@ -153,7 +154,7 @@ function checkControl() {
 
 function retireFromControl(timestamp) {
   control.map((x, index) => {
-    if (x.timeStamp === timestamp) {
+    if (x.timestamp == timestamp) {
       logGreen(`Retirando a mensagem: ${x.message} do controle.`)
       control.splice(index, 1);
     }
@@ -163,20 +164,7 @@ function retireFromControl(timestamp) {
 function sendToGateway(msg) {
   io.emit('LoRamessage', msg);
 }
-/*APAGAR FUNÇÃO FUTURAMENTE
-app.post("/enviar", (req, res) => {
-  try {
-    const { destino, projName, message } = req.body;
-    console.log("destino:" + destino);
-    const timestamp = new Date(new Date().getTime() + offset * 3600 * 1000).getTime();
-    const msg = myMAC + "!" + destino + "!" + projName + "!" + timestamp + "!" + message;
-    sendToGateway(msg);
-    insertOnControl(msg, timestamp);
-    res.send('Mensagem Enviada');
-  } catch (err) {
-    return res.status(400).json({ error: "Falha em enviar a mensagem." });
-  }
-})*/
+
 function logCyan(msg) {
   console.log('\x1b[36m%s\x1b[0m', `${msg}`);
 }
@@ -193,4 +181,4 @@ function logYellow(msg) {
   console.log('\x1b[33m%s\x1b[0m', `${msg}`);
 }
 
-//setInterval(checkControl, 20000);
+setInterval(checkControl, 20000);
