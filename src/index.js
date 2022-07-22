@@ -66,19 +66,17 @@ app.post('/sendLoRa', (req, res) => {
 
 
 socketClient.on("sendMessage", (res) => {
-  /*
   try {
-    const { destiny, projName, message } = req.body;
+    const { remetente, projName, mensagem } = res;
     const timestamp = getTimeStamp();
-    const msg = myMAC + '!' + destiny + '!' + projName + '!' + timestamp + '!' + message;
+    const msg = remetente + '!' + destiny + '!' + projName + '!' + timestamp + '!' + mensagem;
     console.log("Enviando para o Gateway: " + msg);
     sendToGateway(msg);
     insertOnControl(msg, timestamp);
     res.send('OK')
   } catch (err) {
     return res.status(400).json({ error: "Falha em enviar a mensagem." });
-  */
-  console.log(res);
+  }
 })
 
 function getTimeStamp() {
