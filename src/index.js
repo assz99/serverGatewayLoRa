@@ -69,13 +69,12 @@ socketClient.on("sendMessage", (res) => {
   try {
     const { remetente, projName, mensagem } = res;
     const timestamp = getTimeStamp();
-    const msg = remetente + '!' + destiny + '!' + projName + '!' + timestamp + '!' + mensagem;
+    const msg = myMAC + '!' + remetente + '!' + projName + '!' + timestamp + '!' + mensagem;
     console.log("Enviando para o Gateway: " + msg);
     sendToGateway(msg);
     insertOnControl(msg, timestamp);
-    res.send('OK')
   } catch (err) {
-    return res.status(400).json({ error: "Falha em enviar a mensagem." });
+    console.log(err);
   }
 })
 
@@ -84,6 +83,7 @@ function getTimeStamp() {
   return timeStamp;
 }
 
+// msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
 // msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
 // msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp" + !OK;
 async function isFromAProject(str) {
@@ -185,7 +185,7 @@ function checkControl() {
     const timestamp = getTimeStamp();
     let control = timestamp - x.timestampControl;
     logRed(control);
-    if (control >= 30000) {
+    if (control >= 30) {
       sendToGateway(x.message);
       control[index].timestampControl = timestamp;
       logYellow("Reenviando mensagem pois nao foi confirmada.")
