@@ -1,6 +1,7 @@
 const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
+const { io } = require("socket.io-client");
 const mongoose = require('mongoose');
 const bodyParser = require("body-parser");
 const { timeStamp } = require("console");
@@ -15,9 +16,20 @@ const ProjName = mongoose.model("ProjName");
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { /* options */ });
+const ioServer = new Server(httpServer, { /* options */ });
 const port = 8001;
-const dbUrl = "mongodb://localhost:27017/gatewayLora";
+const dbUrl = "mongodb://127.0.0.1:27017/gatewayLora?directConnection=true";
+
+const socketClient = io('https://gestao-ar-adonisjs.herokuapp.com/', {
+  auth: {
+    token: '6XpwoKN0d/vrkdAWaqQw19J/s65eLSzY/kFPhTiRvVE='
+  }
+})
+
+socketClient.on("connect", () => {
+  console.log("Conectado no servidor");
+  console.log(socketClient.id);
+});
 
 mongoose.connect(
   dbUrl, {
@@ -51,6 +63,24 @@ app.post('/sendLoRa', (req, res) => {
   }
 })
 
+
+
+socketClient.on("sendMessage", (res) => {
+  /*
+  try {
+    const { destiny, projName, message } = req.body;
+    const timestamp = getTimeStamp();
+    const msg = myMAC + '!' + destiny + '!' + projName + '!' + timestamp + '!' + message;
+    console.log("Enviando para o Gateway: " + msg);
+    sendToGateway(msg);
+    insertOnControl(msg, timestamp);
+    res.send('OK')
+  } catch (err) {
+    return res.status(400).json({ error: "Falha em enviar a mensagem." });
+  */
+  console.log(res);
+})
+
 function getTimeStamp() {
   const timeStamp = Math.round(new Date(new Date().getTime() + offset * 3600 * 1000).getTime() / 1000);
   return timeStamp;
@@ -72,8 +102,8 @@ function sendConfirmation(x, y) {
   return str;
 }
 
-io.on('connection', (socket) => {
-  logCyan(`a user: ${socket.id} connected`);
+ioServer.on('connection', (socket) => {
+  logCyan(`gateway: ${socket.id} conectado`);
   socket.on('message', async function (message) {
     logCyan(`Recebi a mensagem:\n ${message}`);
     if (await isDuplicate(message)) {
@@ -116,6 +146,19 @@ io.on('connection', (socket) => {
       logRed("TimeStamp desatualizando Enviando novo");
       const msg1 = myMAC + "!" + receivedString[0] + "!time!" + getTimeStamp() + "!OK";
       socket.emit('LoRamessage', msg1);
+    }
+    if (receivedString[2] == "arCond") {
+      const formatedMessage = receivedString[4].split('?');
+      const arcondObj = {
+        "destinatario": receivedString[0],
+        "mensagem": {
+          "temperatura": formatedMessage[0],
+          "humidade": formatedMessage[1],
+          "irms": formatedMessage[2],
+          "kwhTotal": formatedMessage[3],
+        }
+      }
+      socketClient.emit("getMessage", arcondObj);
     }
   });
 });
@@ -162,7 +205,7 @@ function retireFromControl(timestamp) {
 }
 
 function sendToGateway(msg) {
-  io.emit('LoRamessage', msg);
+  ioServer.emit('LoRamessage', msg);
 }
 
 function logCyan(msg) {
