@@ -51,7 +51,7 @@ httpServer.listen(port, () => {
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.post('/sendLoRa', (req, res) => {
+app.post('/sendLoRa', async (req, res) => {
   try {
     const { destiny, projName, message } = req.body;
     const timestamp = getTimeStamp();
@@ -68,7 +68,7 @@ app.post('/sendLoRa', (req, res) => {
 
 
 
-socketClient.on("sendMessage", (res) => {
+socketClient.on("sendMessage", async (res) => {
   try {
     const { remetente, projName, mensagem } = res;
     const timestamp = getTimeStamp();
@@ -79,6 +79,7 @@ socketClient.on("sendMessage", (res) => {
     insertOnControl(msg, timestamp);
   } catch (err) {
     console.log(err);
+
   }
 })
 
