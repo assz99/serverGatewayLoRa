@@ -9,10 +9,12 @@ const { timeStamp } = require("console");
 require("./models/msgLora");
 require("./models/msgProj");
 require("./models/projName");
+require("./models/msgType")
 
 const MsgLora = mongoose.model("MsgLora");
 const MsgProj = mongoose.model("MsgProj");
 const ProjName = mongoose.model("ProjName");
+const MsgType = mongoose.model("MsgType");
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,6 +57,7 @@ app.post('/sendLoRa', (req, res) => {
     const timestamp = getTimeStamp();
     const msg = myMAC + '!' + destiny + '!' + projName + '!' + timestamp + '!' + message;
     console.log("Enviando para o Gateway: " + msg);
+    MsgType.create({ type: "send" });
     sendToGateway(msg);
     insertOnControl(msg, timestamp);
     res.send('OK')
@@ -71,6 +74,7 @@ socketClient.on("sendMessage", (res) => {
     const timestamp = getTimeStamp();
     const msg = myMAC + '!' + remetente + '!' + projName + '!' + timestamp + '!' + mensagem;
     console.log("Enviando para o Gateway: " + msg);
+    MsgType.create({ type: "send" });
     sendToGateway(msg);
     insertOnControl(msg, timestamp);
   } catch (err) {
@@ -125,6 +129,7 @@ ioServer.on('connection', (socket) => {
     if (isFromAProject(receivedString[2])) {
       if (receivedString[2] == "confirm") {
         retireFromControl(receivedString[3]);
+        MsgType.create({ type: "confirm", timestamp: receivedString[3] });
         return;
       }
       objMsg = {
@@ -134,6 +139,7 @@ ioServer.on('connection', (socket) => {
         message: receivedString[4],
       }
       await MsgProj.create(objMsg);
+      MsgType.create({ type: "received" });
       //VERIFICA SE O TIMESTAMP DO CLIENTE ESTA CERTO CASO NAO ESTEJA ELE ENVIA UM NOVO
       sendTime = false;
       if (receivedString[3] - getTimeStamp() > 90 || receivedString[3] - getTimeStamp() < -90) {
