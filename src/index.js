@@ -1,46 +1,35 @@
 const express = require("express");
-const { createServer } = require("http");
-const { Server } = require("socket.io");
-const { io } = require("socket.io-client");
-const mongoose = require('mongoose');
 const bodyParser = require("body-parser");
-const { timeStamp } = require("console");
-
-require("./models/msgLora");
-require("./models/msgProj");
-require("./models/projName");
-
-const MsgLora = mongoose.model("MsgLora");
-const MsgProj = mongoose.model("MsgProj");
-const ProjName = mongoose.model("ProjName");
+const { socketServer } = require("./connections/socketServer");
+const {
+  sendToGateway,
+  isFromAProject,
+  sendConfirmation,
+  isDuplicate
+} = require("./functions/LoRaFunctions");
+const { socketClient } = require("./connections/socketClient");
+require("./connections/mongoConnection")
+const { getTimeStamp } = require("./functions/getTimeStamp");
+const { logGreen,
+  logYellow,
+  logRed,
+  logCyan,
+  logBlue
+} = require("./functions/logColors");
+const { checkControl } = require("./functions/controlFunctions");
+const msgProj = require("./models/msgProj");
+const msgLora = require("./models/msgLora");
 
 const app = express();
-const httpServer = createServer(app);
-const ioServer = new Server(httpServer, { /* options */ });
 const port = 8001;
-const dbUrl = "mongodb://127.0.0.1:27017/gatewayLora?directConnection=true";
-
-const socketClient = io('https://gestao-ar-adonisjs.herokuapp.com/', {
-  auth: {
-    token: '6XpwoKN0d/vrkdAWaqQw19J/s65eLSzY/kFPhTiRvVE='
-  }
-})
 
 socketClient.on("connect", () => {
   console.log("Conectado no servidor");
   console.log(socketClient.id);
 });
 
-mongoose.connect(
-  dbUrl, {
-  useUnifiedTopology: true,
-  useNewUrlParser: true,
-}
-);
 
 const myMAC = "b8:27:eb:8e:94:f2";
-const offset = -4;
-var control = [];
 var sendTime = false;
 
 httpServer.listen(port, () => {
@@ -78,29 +67,10 @@ socketClient.on("sendMessage", (res) => {
   }
 })
 
-function getTimeStamp() {
-  const timeStamp = Math.round(new Date(new Date().getTime() + offset * 3600 * 1000).getTime() / 1000);
-  return timeStamp;
-}
-
-// msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
 // msg = remetente + "!" + destino + "!" + projNome + "!" + pegarTimeStamp + "!" + msgSensores;
 // msgConfirmation = remetente + "!" + destino + "!" + confirm+ "!"+ "TimeStamp" + !OK;
-async function isFromAProject(str) {
-  const projsNames = await ProjName.find({}, { "_id": 0, "id": 0, "__v": 0 });
-  var res;
-  projsNames.map((x) => {
-    res = x.projName + res;
-  })
-  return res.includes(str);
-}
 
-function sendConfirmation(x, y) {
-  const str = myMAC + "!" + x + "!" + "confirm" + "!" + y + "!OK";
-  return str;
-}
-
-ioServer.on('connection', (socket) => {
+socketServer.on('connection', (socket) => {
   logCyan(`gateway: ${socket.id} conectado`);
   socket.on('message', async function (message) {
     logCyan(`Recebi a mensagem:\n ${message}`);
@@ -108,7 +78,7 @@ ioServer.on('connection', (socket) => {
       return;
     }
     var objMsg = { message: message }
-    await MsgLora.create(objMsg);
+    await msgLora.create(objMsg);
     const receivedString = message.split('!');
     //VERIFICA SE A MENSAGEM REALMENTE E PARA O GATEWAY
     if (receivedString[1] === myMAC) {
@@ -133,7 +103,7 @@ ioServer.on('connection', (socket) => {
         timeStamp: receivedString[3],
         message: receivedString[4],
       }
-      await MsgProj.create(objMsg);
+      await msgProj.create(objMsg);
       //VERIFICA SE O TIMESTAMP DO CLIENTE ESTA CERTO CASO NAO ESTEJA ELE ENVIA UM NOVO
       sendTime = false;
       if (receivedString[3] - getTimeStamp() > 90 || receivedString[3] - getTimeStamp() < -90) {
@@ -160,66 +130,5 @@ ioServer.on('connection', (socket) => {
     }
   });
 });
-
-async function isDuplicate(msg) {
-  const res = await MsgLora.countDocuments({ message: msg });
-  if (res >= 1) {
-    logYellow("Mensagem Duplicada");
-    return true;
-  } else {
-    return false;
-  }
-}
-
-function insertOnControl(msg, timestamp) {
-  control.push({ message: msg, timestamp: timestamp, timestampControl: timestamp });
-  logYellow(`Colocando a mensagem no controle:\n${msg}`)
-  if (control.length > 24) {
-    logRed("Cuidado vetor controle esta com muita mensagem;")
-  }
-}
-
-function checkControl() {
-  logYellow("Verificando Vetor Control")
-  control.map((x, index) => {
-    const timestamp = getTimeStamp();
-    let control = timestamp - x.timestampControl;
-    logRed(control);
-    if (control >= 30) {
-      sendToGateway(x.message);
-      control[index].timestampControl = timestamp;
-      logYellow("Reenviando mensagem pois nao foi confirmada.")
-    }
-  })
-}
-
-function retireFromControl(timestamp) {
-  control.map((x, index) => {
-    if (x.timestamp == timestamp) {
-      logGreen(`Retirando a mensagem: ${x.message} do controle.`)
-      control.splice(index, 1);
-    }
-  })
-}
-
-function sendToGateway(msg) {
-  ioServer.emit('LoRamessage', msg);
-}
-
-function logCyan(msg) {
-  console.log('\x1b[36m%s\x1b[0m', `${msg}`);
-}
-function logBlue(msg) {
-  console.log('\x1b[34m%s\x1b[0m', `${msg}`);
-}
-function logRed(msg) {
-  console.log('\x1b[31m%s\x1b[0m', `${msg}`);
-}
-function logGreen(msg) {
-  console.log('\x1b[32m%s\x1b[0m', `${msg}`);
-}
-function logYellow(msg) {
-  console.log('\x1b[33m%s\x1b[0m', `${msg}`);
-}
 
 setInterval(checkControl, 20000);
