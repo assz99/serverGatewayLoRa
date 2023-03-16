@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 //Cria o modelo do checklist que se armazena no mongoDB
 const msgLoraSchema = new mongoose.Schema({
   message: {
@@ -8,4 +8,4 @@ const msgLoraSchema = new mongoose.Schema({
 }, { collection: 'msgLora' }
 );
 
-module.exports = mongoose.model("MsgLora", msgLoraSchema);
+export const msgLora = mongoose.model("MsgLora", msgLoraSchema);

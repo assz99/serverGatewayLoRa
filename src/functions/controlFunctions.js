@@ -1,5 +1,5 @@
-import { logGreen, logRed, logYellow } from "./logColors";
-import { sendToGateway } from "./LoRaFunctions";
+import { logGreen, logRed, logYellow } from "./logColors.js";
+import { sendToGateway } from "./LoRaFunctions.js";
 
 var control = [];
 

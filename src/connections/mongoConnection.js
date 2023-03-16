@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 const dbUrl = "mongodb://127.0.0.1:27017/gatewayLora?directConnection=true";
 
 mongoose.connect(

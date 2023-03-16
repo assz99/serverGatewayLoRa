@@ -1,26 +1,25 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const { socketServer } = require("./connections/socketServer");
-const {
+import express from "express";
+import bodyParser from 'body-parser'
+import { socketServer } from "./connections/socketServer.js";
+import { socketClient } from "./connections/socketClient.js";
+import {
   sendToGateway,
   isFromAProject,
   sendConfirmation,
   isDuplicate
-} = require("./functions/LoRaFunctions");
-const { socketClient } = require("./connections/socketClient");
-require("./connections/mongoConnection")
-const { getTimeStamp } = require("./functions/getTimeStamp");
-const { logGreen,
-  logYellow,
-  logRed,
-  logCyan,
-  logBlue
-} = require("./functions/logColors");
-const { checkControl } = require("./functions/controlFunctions");
-const msgProj = require("./models/msgProj");
-const msgLora = require("./models/msgLora");
+} from "./functions/LoRaFunctions.js";
+
+
+import "./connections/mongoConnection.js"
+import { getTimeStamp } from "./functions/getTimeStamp.js";
+
+import { checkControl } from "./functions/controlFunctions.js";
+import { msgProj } from "./models/msgProj.js";
+import { msgLora } from "./models/msgLora.js";
+import { logCyan, logBlue, logRed, logGreen, logYellow } from "./functions/logColors.js";
 
 const app = express();
+
 const port = 8001;
 
 socketClient.on("connect", () => {
@@ -32,7 +31,7 @@ socketClient.on("connect", () => {
 const myMAC = "b8:27:eb:8e:94:f2";
 var sendTime = false;
 
-httpServer.listen(port, () => {
+app.listen(port, () => {
   logGreen(`Projeto rodando em http://localhost:${port}`)
 });
 app.use(bodyParser.urlencoded({ extended: false }));

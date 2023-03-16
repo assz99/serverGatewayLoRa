@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 //Cria o modelo do checklist que se armazena no mongoDB
 const projNameSchema = new mongoose.Schema({
   id: {
@@ -13,4 +13,4 @@ const projNameSchema = new mongoose.Schema({
 }, { collection: 'projName' }
 );
 
-module.exports = mongoose.model("ProjName", projNameSchema);
+export const projName = mongoose.model("ProjName", projNameSchema);

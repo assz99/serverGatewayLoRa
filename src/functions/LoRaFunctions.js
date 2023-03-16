@@ -1,7 +1,7 @@
-import { logYellow } from "./logColors";
-import projName from "./models/projName";
-import msgLora from "../models/msgLora";
-import { socketServer } from "../connections/socketServer";
+import { logYellow } from "./logColors.js";
+import { projName } from "../models/projName.js";
+import { msgLora } from "../models/msgLora.js";
+import { socketServer } from "../connections/socketServer.js";
 
 export function sendToGateway(msg) {
   socketServer.emit('LoRamessage', msg);
