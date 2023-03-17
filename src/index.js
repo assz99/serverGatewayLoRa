@@ -123,19 +123,8 @@ socketServer.on('connection', (socket) => {
       const msg1 = myMAC + "!" + receivedString[0] + "!time!" + getTimeStamp() + "!OK";
       socket.emit('LoRamessage', msg1);
     }
-    if (receivedString[2] == "arCond") {
-      const formatedMessage = receivedString[4].split('?');
-      const arcondObj = {
-        "destinatario": receivedString[0],
-        "mensagem": {
-          "temperatura": formatedMessage[0],
-          "humidade": formatedMessage[1],
-          "irms": formatedMessage[2],
-          "kwhTotal": formatedMessage[3],
-        }
-      }
-      socketClient.emit("getMessage", arcondObj);
-    }
+    // função para ser enviada para os serviços externos sendo enviada respectivamente o destinatario, codigo do projeto e a mensagem
+    sendToService(receivedString[0], receivedString[2], receivedString[4]);
   });
 });
 
