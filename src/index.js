@@ -73,17 +73,22 @@ socketServer.on('connection', (socket) => {
   logCyan(`gateway: ${socket.id} conectado`);
   socket.on('message', async function (message) {
     logCyan(`Recebi a mensagem:\n ${message}`);
+    var objMsg = { message: message, status: '' }
     if (await isDuplicate(message)) {
+      objMsg.status = "Du"
+      await msgLora.create(objMsg);
       return;
     }
-    var objMsg = { message: message }
-    await msgLora.create(objMsg);
+
+
     const receivedString = message.split('!');
     //VERIFICA SE A MENSAGEM REALMENTE E PARA O GATEWAY
     if (receivedString[1] === myMAC) {
       logGreen("Mensagem e para mim");
     } else {
       logYellow("Mensagem nao e para mim.");
+      objMsg.status = "Di"
+      await msgLora.create(objMsg);
       return;
     }
     //ENVIA A CONFIRMAÇÃO PARA O CLIENTE CONFIRMANDO QUE RECEBEU A MENSAGEM
@@ -94,6 +99,8 @@ socketServer.on('connection', (socket) => {
     if (isFromAProject(receivedString[2])) {
       if (receivedString[2] == "confirm") {
         retireFromControl(receivedString[3]);
+        objMsg.status = "C"
+        await msgLora.create(objMsg);
         return;
       }
       objMsg = {
@@ -102,6 +109,8 @@ socketServer.on('connection', (socket) => {
         timeStamp: receivedString[3],
         message: receivedString[4],
       }
+      objMsg.status = "G"
+      await msgLora.create(objMsg);
       await msgProj.create(objMsg);
       //VERIFICA SE O TIMESTAMP DO CLIENTE ESTA CERTO CASO NAO ESTEJA ELE ENVIA UM NOVO
       sendTime = false;

@@ -4,6 +4,9 @@ const msgLoraSchema = new mongoose.Schema({
   message: {
     type: String,
     require: true
+  },
+  status: {
+    type: String,
   }
 }, { collection: 'msgLora' }
 );
