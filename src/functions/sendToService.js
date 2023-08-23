@@ -1,7 +1,7 @@
 import { socketClient } from "../connections/socketClient";
 import { logYellow } from "./logColors";
 
-function sendToService(destinatario, projCod, msg) {
+export default function sendToService(destinatario, projCod, msg) {
   switch (projCod) {
     case "arCond":
       const formatedMessage = msg.split('?');

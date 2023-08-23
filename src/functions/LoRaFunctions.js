@@ -6,7 +6,7 @@ import { socketServer } from "../connections/socketServer.js";
 export function sendToGateway(msg) {
   socketServer.emit('LoRamessage', msg);
 }
-
+const myMAC = "b8:27:eb:8e:94:f2";
 export function sendConfirmation(macDestination, timestamp) {
   const str = myMAC + "!" + macDestination + "!" + "confirm" + "!" + timestamp + "!OK";
   return str;
