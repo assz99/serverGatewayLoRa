@@ -1,5 +1,6 @@
-import { socketClient } from "../connections/socketClient";
-import { logYellow } from "./logColors";
+
+import { socketClient } from "../connections/socketClient.js";
+import { logYellow } from "./logColors.js";
 
 export default function sendToService(destinatario, projCod, msg) {
   switch (projCod) {
