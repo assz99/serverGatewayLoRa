@@ -1,6 +1,8 @@
 import express from "express";
 import bodyParser from 'body-parser'
-import { socketServer } from "./connections/socketServer.js";
+import http from 'http';
+import { Server } from "socket.io";
+//import { socketServer } from "./connections/socketServer.js";
 import { socketClient } from "./connections/socketClient.js";
 import {
   sendToGateway,
@@ -20,7 +22,12 @@ import { logCyan, logBlue, logRed, logGreen, logYellow } from "./functions/logCo
 
 const app = express();
 
+const server = http.createServer(app);
+
+
 const port = 8001;
+
+const socketServer = new Server(server);
 
 socketClient.on("connect", () => {
   console.log("Conectado no servidor");
@@ -31,7 +38,7 @@ socketClient.on("connect", () => {
 const myMAC = "b8:27:eb:8e:94:f2";
 var sendTime = false;
 
-app.listen(port, () => {
+server.listen(port, () => {
   logGreen(`Projeto rodando em http://localhost:${port}`)
 });
 app.use(bodyParser.urlencoded({ extended: false }));
